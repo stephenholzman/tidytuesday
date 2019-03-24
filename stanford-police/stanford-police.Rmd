@@ -9,22 +9,86 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 ```{r cars}
-summary(cars)
+library(tidyverse)
+library(tidycensus)
+library(viridis)
+library(cowplot)
+
+combined_data <- readr::read_csv("https://raw.githubusercontent.com/5harad/openpolicing/master/results/data_for_figures/combined_data.csv")
+
+
 ```
 
-## Including Plots
+```{r}
+fl_police <- combined_data %>%
+    filter(state == "FL") %>%
+    mutate(location = ifelse(location == "DESOTO COUNTY", "DeSoto County, Florida",paste0(str_to_title(location),", Florida")))
+    
+florida <- get_acs(state = "FL", geography = "county", variables = "B00001_001", geometry = TRUE)
+ 
+ar <- fl_police %>%
+    left_join(florida, by = c("location" = "NAME")) %>%
+    ggplot(aes(fill = arrest_rate)) +
+    geom_sf() +
+    facet_wrap(~driver_race, ncol = 1) +
+    scale_fill_viridis(option = "magma") +
+    theme_bw() +
+    theme(
+        axis.line = element_blank(),
+        panel.grid = element_line(colour="transparent"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+    ) +
+    labs(
+        fill = "Arrest Rate"
+    )
 
-You can also embed plots, for example:
+sr <- fl_police %>%
+    left_join(florida, by = c("location" = "NAME")) %>%
+    ggplot(aes(fill = stop_rate)) +
+    geom_sf() +
+    facet_wrap(~driver_race, ncol = 1) +
+    scale_fill_viridis(option = "magma") +
+    theme_bw() +
+    theme(
+        axis.line = element_blank(),
+        panel.grid = element_line(colour="transparent"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+    ) +
+    labs(
+        fill = "Stop Rate"
+    )
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+ss <- fl_police %>%
+    left_join(florida, by = c("location" = "NAME")) %>%
+    ggplot(aes(fill = citation_rate_speeding_stops)) +
+    geom_sf() +
+    facet_wrap(~driver_race, ncol = 1) +
+    scale_fill_viridis(option = "magma") +
+    theme_bw() +
+    theme(
+        axis.line = element_blank(),
+        panel.grid = element_line(colour="transparent"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+    ) +
+    labs(
+        fill = "Citation Rate - Speeding Stops"
+    )
+
+
+p <- plot_grid(sr,ar,ss, nrow = 1)
+
+title <- ggdraw() + draw_label("Florida Police Interactions", fontface = "bold")
+
+p1 <- plot_grid(title, p, ncol=1, rel_heights=c(0.1, 1))
+
+p2 <- add_sub(p1, "Data: Stanford Open Policing Project - #TidyTuesday")
+
+
+ggsave("plot.png",ggdraw(p2), width = 16, height = 9)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
